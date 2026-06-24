@@ -124,11 +124,15 @@ curl -X POST "<WEBHOOK_URI>"
 ::   Automation Account -> Runbooks -> DisableLocalAuth-<资源名> -> Jobs
 
 :: 或直接检查资源状态:
-az resource show --ids <resource-id> --query "properties.disableLocalAuth"
+az cognitiveservices account show -n <resource-name> -g <resource-group-name> --query "properties.disableLocalAuth"
 ```
 
 成功运行会输出 `disableLocalAuth is now True`。
 
+## 人工启用key
+```cmd
+az resource update --resource-group <resource-group-name> --name <resource-name> --resource-type Microsoft.CognitiveServices/accounts --set properties.disableLocalAuth=
+```
 ## 在哪里查看 Runbook
 
 ```
