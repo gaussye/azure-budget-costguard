@@ -1,6 +1,6 @@
 # Azure 预算成本守卫(Cost-Guard)
 
-一个一键、**幂等**的 Windows CMD 脚本,为 Azure **Cognitive / AI Services**
+Windows CMD 脚本,为 Azure **Cognitive / AI Services**
 账号配置自动**成本止损开关**。
 
 当账号的月度消费超过预算阈值时,Azure 会自动禁用该资源的**本地(密钥)认证**
