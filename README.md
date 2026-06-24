@@ -134,6 +134,31 @@ az cognitiveservices account show -n <resource-name> -g <resource-group-name> --
 ```cmd
 az resource update --resource-group <resource-group-name> --name <resource-name> --resource-type Microsoft.CognitiveServices/accounts --set properties.disableLocalAuth=false
 ```
+
+### 门户验证截图(图解)
+
+如果你对 Azure 门户不熟悉,可对照以下真实截图逐步核对。
+
+**1. Runbook 概览** —— `Automation Account -> Runbooks -> DisableLocalAuth-<资源名>`。
+底部「Recent Jobs」出现一条 **Completed** 记录,即表示链路已执行。
+
+![Runbook 概览](screenshots/01-runbook-overview.png)
+
+**2. 作业输出** —— 点开那条 Completed 作业,切到 **Output** 选项卡,
+应看到 `disableLocalAuth is now True`,这是最关键的成功凭证。
+
+![作业输出](screenshots/04-job-output.png)
+
+**3. Action Group** —— `ag-cg-<资源名>` 的「Actions」里应有一条
+**Automation Runbook** 动作,指向上面的 runbook,说明告警会被正确路由。
+
+![Action Group](screenshots/02-action-group.png)
+
+**4. Cognitive 资源** —— 目标 AI Services 账号概览页,确认这正是被保护的资源。
+（密钥是否被禁用可在该资源的 *Keys and Endpoint* 页或用下面的 CLI 命令核对。）
+
+![Cognitive 资源](screenshots/03-cognitive-overview.png)
+
 ## 在哪里查看 Runbook
 
 ```
