@@ -130,8 +130,9 @@ az cognitiveservices account show -n <resource-name> -g <resource-group-name> --
 成功运行会输出 `disableLocalAuth is now True`。
 
 ## 人工启用key
+告警导致key不可以用，需要恢复到可用状态可用用下面的命令(enable会激活key为可使用状态，但是不会更新key)
 ```cmd
-az resource update --resource-group <resource-group-name> --name <resource-name> --resource-type Microsoft.CognitiveServices/accounts --set properties.disableLocalAuth=
+az resource update --resource-group <resource-group-name> --name <resource-name> --resource-type Microsoft.CognitiveServices/accounts --set properties.disableLocalAuth=false
 ```
 ## 在哪里查看 Runbook
 
