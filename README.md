@@ -96,6 +96,28 @@ setup-budget-costguard.cmd /subscriptions/<sub>/resourceGroups/<rg>/providers/Mi
 | Budget              | `costguard-admin-3283-resource`         | 目标 RG(范围限定到该资源) |
 | 角色分配            | 为 Automation Account 的托管身份授予 *Cognitive Services Contributor* | 目标资源上 |
 
+## 费用说明
+
+这套链路是**事件驱动**的——平时只是几条配置记录,不产生持续费用。整体成本**几乎为 0**。
+
+| 组件 | 计费方式 | 实际花费 |
+|------|----------|----------|
+| Budget(预算)        | Cost Management 预算功能免费                       | ¥0 |
+| Action Group          | 创建/存在不收费;仅按发出的通知计费(Runbook 动作本身不收费) | ¥0 |
+| Automation Account    | 账号本身不收费                                     | ¥0 |
+| Runbook 作业          | 每月前 **500 分钟免费**,超出约 **$0.002/分钟**     | 每次触发仅几秒,几乎 ¥0 |
+| Webhook               | 免费                                               | ¥0 |
+| 角色分配 / 托管身份   | 免费                                               | ¥0 |
+
+> 唯一可能计费的是 Automation 作业时长,但每次禁用密钥的运行只需数秒,即使一个月
+> 触发上千次也远在 500 分钟免费额度内,实际仍是 0。
+
+需要留意:
+
+- **通知类动作**:若你后续在 Action Group 中加入短信/语音通知,会有少量费用(邮件每月前 1000 封免费)。当前脚本只用 Runbook 动作,不涉及。
+- **被保护的资源本身**(Cognitive / AI Services 账号)照常按其自身用量计费——本脚本不增加它的成本,反而是用来帮你**止损**的。
+- 价格随区域与时间变动,以你订阅的实际账单为准。
+
 ## 幂等性
 
 脚本可安全重复运行:
