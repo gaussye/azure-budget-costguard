@@ -1,0 +1,7 @@
+# Local artifacts
+*.log
+*.tmp
+webhook_uri.txt
+budget.json
+wh.json
+actiongroup.json
