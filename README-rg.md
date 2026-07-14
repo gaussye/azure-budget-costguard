@@ -157,8 +157,28 @@ az cognitiveservices account show -n <account-name> -g <resource-group> --query 
 
 ## 人工启用 key
 
-告警导致 key 不可用,需要恢复到可用状态,可对相关资源执行(enable 会激活 key 为可
-使用状态,但不会更新 key):
+告警导致 key 不可用,需要恢复到可用状态。由于本工具作用于**整个资源组**,恢复时
+同样应**枚举 RG 下所有 foundry 资源再逐个 enable**(enable 会激活 key 为可使用状态,
+但不会更新 key):
+
+在命令行直接运行(`%n` 单百分号):
+
+```cmd
+for /f "usebackq delims=" %n in (`az cognitiveservices account list -g ^<resource-group^> --query "[?kind=='AIServices'].name" -o tsv`) do az resource update -g ^<resource-group^> --name %n --resource-type Microsoft.CognitiveServices/accounts --set properties.disableLocalAuth=false
+```
+
+> 若把上面这段写进 `.cmd` 批处理文件,需把 `%n` 改成 `%%n`。
+
+PowerShell 版本:
+
+```powershell
+az cognitiveservices account list -g <resource-group> --query "[?kind=='AIServices'].name" -o tsv |
+  ForEach-Object {
+    az resource update -g <resource-group> --name $_ --resource-type Microsoft.CognitiveServices/accounts --set properties.disableLocalAuth=false
+  }
+```
+
+如只想恢复**单个**资源:
 
 ```cmd
 az resource update --resource-group <resource-group> --name <account-name> --resource-type Microsoft.CognitiveServices/accounts --set properties.disableLocalAuth=false
