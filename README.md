@@ -1,5 +1,9 @@
 # Azure 预算成本守卫(Cost-Guard)
 
+> 📁 **两种范围可选**:本页(`setup-budget-costguard.cmd`)按**单个资源**设预算;
+> 如需按**整个资源组**设预算(触发时批量禁用组内所有 foundry 资源的密钥),
+> 见 **[README-rg.md](./README-rg.md)** / `setup-budget-costguard-rg.cmd`。
+
 Windows CMD 脚本,为 Azure **Cognitive / AI Services**
 账号配置自动**成本止损开关**。
 

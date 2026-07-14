@@ -5,11 +5,12 @@ REM ===========================================================================
 REM  setup-budget-costguard-rg.cmd   (RESOURCE-GROUP scoped variant)
 REM
 REM  USAGE:
-REM     setup-budget-costguard-rg.cmd <resource-group> [budget-amount] [threshold-percent]
+REM     setup-budget-costguard-rg.cmd <resource-group> [budget-amount] [threshold-percent] [alert-email]
 REM
 REM     <resource-group>     name of the resource group to guard (required)
 REM     [budget-amount]      monthly budget, e.g. 50   (optional, default below)
 REM     [threshold-percent]  alert threshold %, e.g. 90 (optional, default below)
+REM     [alert-email]        email to receive the budget notification (optional, default below)
 REM
 REM  Unlike the resource-scoped script, this version watches the WHOLE resource
 REM  group's monthly cost. When the budget threshold is crossed it wires up:
@@ -33,12 +34,13 @@ REM ----------------------------- EDIT THESE ---------------------------------
 set "SUBSCRIPTION="
 set "INFRA_RG=rg-budget-costguard"
 set "LOCATION=eastus"
-set "COG_API_VERSION=2023-05-01"
+set "COG_API_VERSION=2026-05-01"
 
 set "BUDGET_AMOUNT=50"
 set "BUDGET_THRESHOLD=90"
 set "ALERT_EMAIL=you@example.com"
-REM (BUDGET_AMOUNT / BUDGET_THRESHOLD above are defaults; override via args 2 and 3)
+REM (BUDGET_AMOUNT / BUDGET_THRESHOLD / ALERT_EMAIL above are defaults;
+REM  override via args 2, 3 and 4 respectively.)
 REM Name prefixes; the target resource group name is appended automatically so
 REM every guarded RG gets its own clearly-named set.
 set "AUTOMATION_PREFIX=aa-cg"
@@ -54,12 +56,13 @@ REM --------------------------------------------------------------------------
 
 set "TARGET_RG=%~1"
 if "%TARGET_RG%"=="" (
-  echo Usage: %~nx0 ^<resource-group^> [budget-amount] [threshold-percent]
+  echo Usage: %~nx0 ^<resource-group^> [budget-amount] [threshold-percent] [alert-email]
   exit /b 1
 )
 if not "%~2"=="" set "BUDGET_AMOUNT=%~2"
 if not "%~3"=="" set "BUDGET_THRESHOLD=%~3"
-echo Budget amount: %BUDGET_AMOUNT%   Threshold: %BUDGET_THRESHOLD%%%
+if not "%~4"=="" set "ALERT_EMAIL=%~4"
+echo Budget amount: %BUDGET_AMOUNT%   Threshold: %BUDGET_THRESHOLD%%%   Alert email: %ALERT_EMAIL%
 
 echo.
 echo === [0/9] Selecting subscription ===
@@ -191,6 +194,7 @@ echo ===========================================================================
 echo  DONE.
 echo    Resource grp : %TARGET_RG%
 echo    Budget       : %BUDGET_NAME%  amount=%BUDGET_AMOUNT%  alert@%BUDGET_THRESHOLD%%%  (RG scope)
+echo    Alert email  : %ALERT_EMAIL%
 echo    Action Group : %ACTION_GROUP%  (Automation Runbook receiver)  -^>  runbook %RUNBOOK_NAME%
 echo    On trigger   : disable key auth on EVERY kind=%FOUNDRY_KIND% (foundry) account in the RG
 echo.
