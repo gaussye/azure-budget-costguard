@@ -85,12 +85,16 @@ echo Foundry (kind=%FOUNDRY_KIND%) accounts currently in this RG:
 call az cognitiveservices account list --resource-group "%TARGET_RG%" --query "[?kind=='%FOUNDRY_KIND%'].name" -o tsv
 
 REM --- Deriving per-RG names (append the RG name so each set is unique) ---
-set "AUTOMATION_ACCOUNT=%AUTOMATION_PREFIX%-%TARGET_RG%"
-set "RUNBOOK_NAME=%RUNBOOK_PREFIX%-%TARGET_RG%"
-set "ACTION_GROUP=%ACTION_GROUP_PREFIX%-%TARGET_RG%"
-REM Action Group short name is capped at 12 chars: strip dashes from the RG
-REM name and take the first 12 characters.
-set "AG_SHORT_RAW=%TARGET_RG:-=%"
+REM Azure resource names (e.g. Automation Account) allow only letters, numbers
+REM and hyphens, so replace any underscores in the RG name with hyphens.
+set "RG_SAFE=%TARGET_RG:_=-%"
+set "AUTOMATION_ACCOUNT=%AUTOMATION_PREFIX%-%RG_SAFE%"
+set "RUNBOOK_NAME=%RUNBOOK_PREFIX%-%RG_SAFE%"
+set "ACTION_GROUP=%ACTION_GROUP_PREFIX%-%RG_SAFE%"
+REM Action Group short name is capped at 12 chars and must be alphanumeric:
+REM strip both underscores and dashes from the RG name, then take 12 chars.
+set "AG_SHORT_RAW=%TARGET_RG:_=%"
+set "AG_SHORT_RAW=%AG_SHORT_RAW:-=%"
 set "ACTION_GROUP_SHORT=%AG_SHORT_RAW:~0,12%"
 echo Names    : AA=%AUTOMATION_ACCOUNT%  RB=%RUNBOOK_NAME%  AG=%ACTION_GROUP%  short=%ACTION_GROUP_SHORT%
 
@@ -104,7 +108,7 @@ call az automation account create --name "%AUTOMATION_ACCOUNT%" --resource-group
 call az rest --method patch --url "https://management.azure.com%AA_RESOURCE_ID%?api-version=2023-11-01" --body "{\"identity\":{\"type\":\"SystemAssigned\"}}" -o none || goto :error
 
 echo Waiting for the managed identity to propagate...
-timeout /t 20 /nobreak >nul
+ping -n 21 127.0.0.1 >nul
 for /f "usebackq delims=" %%i in (`az rest --method get --url "https://management.azure.com%AA_RESOURCE_ID%?api-version=2023-11-01" --query "identity.principalId" -o tsv`) do set "PRINCIPAL_ID=%%i"
 if "%PRINCIPAL_ID%"=="" goto :error
 echo Identity principalId: %PRINCIPAL_ID%
