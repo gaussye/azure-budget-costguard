@@ -9,8 +9,15 @@ REM     setup-budget-costguard-rg.cmd <resource-group> [budget-amount] [threshol
 REM
 REM     <resource-group>     name of the resource group to guard (required)
 REM     [budget-amount]      monthly budget, e.g. 50   (optional, default below)
-REM     [threshold-percent]  alert threshold %, e.g. 90 (optional, default below)
-REM     [alert-email]        email to receive the budget notification (optional, default below)
+REM     [threshold-percent]  TIER 1 email-only alert threshold %, e.g. 90
+REM                          (optional, default below; must be < 100)
+REM     [alert-email]        email to receive the budget notifications (optional)
+REM
+REM  Two-tier alerting on the RG's monthly cost:
+REM     TIER 1  at [threshold-percent]  -> EMAIL ONLY (a heads-up, no enforcement)
+REM     TIER 2  at 100%% (hard-wired)    -> EMAIL + Action Group that runs the
+REM                                        runbook to disable key auth on every
+REM                                        foundry account in the RG.
 REM
 REM  Unlike the resource-scoped script, this version watches the WHOLE resource
 REM  group's monthly cost. When the budget threshold is crossed it wires up:
@@ -41,6 +48,11 @@ set "BUDGET_THRESHOLD=90"
 set "ALERT_EMAIL=you@example.com"
 REM (BUDGET_AMOUNT / BUDGET_THRESHOLD / ALERT_EMAIL above are defaults;
 REM  override via args 2, 3 and 4 respectively.)
+REM Two-tier alerting:
+REM   Tier 1 = BUDGET_THRESHOLD (user-set, arg 3): EMAIL ONLY, no enforcement.
+REM   Tier 2 = ENFORCE_THRESHOLD (hard-wired 100): EMAIL + Action Group that
+REM            disables key auth. Do NOT change this; enforcement fires at 100%%.
+set "ENFORCE_THRESHOLD=100"
 REM Name prefixes; the target resource group name is appended automatically so
 REM every guarded RG gets its own clearly-named set.
 set "AUTOMATION_PREFIX=aa-cg"
@@ -62,7 +74,15 @@ if "%TARGET_RG%"=="" (
 if not "%~2"=="" set "BUDGET_AMOUNT=%~2"
 if not "%~3"=="" set "BUDGET_THRESHOLD=%~3"
 if not "%~4"=="" set "ALERT_EMAIL=%~4"
-echo Budget amount: %BUDGET_AMOUNT%   Threshold: %BUDGET_THRESHOLD%%%   Alert email: %ALERT_EMAIL%
+REM The email-only tier must be strictly below the 100%% enforcement tier so the
+REM two notifications are distinct and the email fires before key auth is cut.
+if %BUDGET_THRESHOLD% GEQ %ENFORCE_THRESHOLD% (
+  echo ERROR: threshold-percent must be less than %ENFORCE_THRESHOLD% ^(the email tier fires before the 100%% enforcement tier^).
+  exit /b 1
+)
+echo Tier 1 email-only  : %BUDGET_THRESHOLD%%%   (email: %ALERT_EMAIL%)
+echo Tier 2 enforce+key : %ENFORCE_THRESHOLD%%%   (email + disable key auth)
+echo Budget amount: %BUDGET_AMOUNT%
 
 echo.
 echo === [0/9] Selecting subscription ===
@@ -187,7 +207,10 @@ for /f %%i in ('powershell -NoProfile -Command "(Get-Date).ToString('yyyy-MM-01'
 for /f %%i in ('powershell -NoProfile -Command "(Get-Date).AddYears(5).ToString('yyyy-MM-01')"') do set "END_DATE=%%i"
 set "BUDGET_NAME=costguard-%TARGET_RG%"
 set "BUDGET_JSON=%TEMP%\budget.json"
-> "%BUDGET_JSON%" echo {"properties":{"category":"Cost","amount":%BUDGET_AMOUNT%,"timeGrain":"Monthly","timePeriod":{"startDate":"%START_DATE%T00:00:00Z","endDate":"%END_DATE%T00:00:00Z"},"notifications":{"BudgetExceeded":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":%BUDGET_THRESHOLD%,"thresholdType":"Actual","contactEmails":["%ALERT_EMAIL%"],"contactGroups":["%AG_ID%"]}}}}
+REM Two-tier notifications:
+REM   Tier 1 (user threshold %BUDGET_THRESHOLD%%%): EMAIL ONLY  -> no action group.
+REM   Tier 2 (hard-wired %ENFORCE_THRESHOLD%%%):    EMAIL + ACTION GROUP -> disables key auth.
+> "%BUDGET_JSON%" echo {"properties":{"category":"Cost","amount":%BUDGET_AMOUNT%,"timeGrain":"Monthly","timePeriod":{"startDate":"%START_DATE%T00:00:00Z","endDate":"%END_DATE%T00:00:00Z"},"notifications":{"Actual_Email_%BUDGET_THRESHOLD%":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":%BUDGET_THRESHOLD%,"thresholdType":"Actual","contactEmails":["%ALERT_EMAIL%"]},"Actual_Enforce_%ENFORCE_THRESHOLD%":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":%ENFORCE_THRESHOLD%,"thresholdType":"Actual","contactEmails":["%ALERT_EMAIL%"],"contactGroups":["%AG_ID%"]}}}}
 
 echo.
 echo === [9/9] Creating the Budget (at resource-group scope) ===
@@ -197,10 +220,10 @@ echo.
 echo ===========================================================================
 echo  DONE.
 echo    Resource grp : %TARGET_RG%
-echo    Budget       : %BUDGET_NAME%  amount=%BUDGET_AMOUNT%  alert@%BUDGET_THRESHOLD%%%  (RG scope)
-echo    Alert email  : %ALERT_EMAIL%
-echo    Action Group : %ACTION_GROUP%  (Automation Runbook receiver)  -^>  runbook %RUNBOOK_NAME%
-echo    On trigger   : disable key auth on EVERY kind=%FOUNDRY_KIND% (foundry) account in the RG
+echo    Budget       : %BUDGET_NAME%  amount=%BUDGET_AMOUNT%  (RG scope)
+echo    Tier 1       : at %BUDGET_THRESHOLD%%%  -^>  EMAIL ONLY to %ALERT_EMAIL%
+echo    Tier 2       : at %ENFORCE_THRESHOLD%%%  -^>  EMAIL + Action Group %ACTION_GROUP%
+echo    On tier 2    : runbook %RUNBOOK_NAME% disables key auth on EVERY kind=%FOUNDRY_KIND% account in the RG
 echo.
 echo  Test the cost-guard now (without waiting for the budget):
 echo    curl -X POST "%WEBHOOK_URI%"
