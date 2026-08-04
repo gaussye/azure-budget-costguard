@@ -12,8 +12,9 @@ REM     [budget-amount]      monthly budget, e.g. 50   (optional, default below)
 REM     [threshold-percent]  TIER 1 email-only alert threshold %, e.g. 90
 REM                          (optional, default below; must be < 100)
 REM     [alert-email]        email(s) to receive the budget notifications.
-REM                          Multiple emails: comma-separate them AND quote the
-REM                          value, e.g. "a@x.com,b@y.com"  (optional)
+REM                          Multiple emails: comma-separate them, e.g.
+REM                          "a@x.com,b@y.com". Works from both cmd.exe and
+REM                          PowerShell; quoting the list is recommended.  (optional)
 REM
 REM  Two-tier alerting on the RG's monthly cost:
 REM     TIER 1  at [threshold-percent]  -> EMAIL ONLY (a heads-up, no enforcement)
@@ -75,17 +76,32 @@ if "%TARGET_RG%"=="" (
 )
 if not "%~2"=="" set "BUDGET_AMOUNT=%~2"
 if not "%~3"=="" set "BUDGET_THRESHOLD=%~3"
-if not "%~4"=="" set "ALERT_EMAIL=%~4"
+REM --- Collect the alert email(s) from arg 4 onward -------------------------
+REM Running this .cmd from PowerShell strips the quotes, so a "a@x,b@y" list
+REM arrives as SEPARATE args (%4 %5 ...); running from cmd.exe keeps it whole in
+REM %4. Handle both (and space-separated lists) by shifting past the first three
+REM args and concatenating every remaining token with commas.
+shift & shift & shift
+set "ALERT_EMAIL_COLLECTED="
+:collect_emails
+if "%~1"=="" goto :emails_done
+if defined ALERT_EMAIL_COLLECTED (
+  set "ALERT_EMAIL_COLLECTED=%ALERT_EMAIL_COLLECTED%,%~1"
+) else (
+  set "ALERT_EMAIL_COLLECTED=%~1"
+)
+shift
+goto :collect_emails
+:emails_done
+if defined ALERT_EMAIL_COLLECTED set "ALERT_EMAIL=%ALERT_EMAIL_COLLECTED%"
 REM The email-only tier must be strictly below the 100%% enforcement tier so the
 REM two notifications are distinct and the email fires before key auth is cut.
 if %BUDGET_THRESHOLD% GEQ %ENFORCE_THRESHOLD% (
   echo ERROR: threshold-percent must be less than %ENFORCE_THRESHOLD% ^(the email tier fires before the 100%% enforcement tier^).
   exit /b 1
 )
-REM Support multiple, comma-separated emails. Strip spaces, then turn the list
-REM into a JSON array: "a@x.com,b@y.com" -> ["a@x.com","b@y.com"].
-REM NOTE: because cmd treats commas as argument separators, a multi-email value
-REM MUST be passed quoted, e.g. "a@x.com,b@y.com".
+REM Turn the collected list into a JSON array: a@x.com,b@y.com -> ["a@x.com","b@y.com"].
+REM Strip any spaces first (e.g. "a@x.com, b@y.com").
 set "ALERT_EMAIL=%ALERT_EMAIL: =%"
 set "ALERT_EMAILS_JSON=["%ALERT_EMAIL:,=","%"]"
 echo Tier 1 email-only  : %BUDGET_THRESHOLD%%%   (email: %ALERT_EMAIL%)
