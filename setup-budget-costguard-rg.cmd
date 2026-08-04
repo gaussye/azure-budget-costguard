@@ -169,12 +169,26 @@ set "RB=%TEMP%\%RUNBOOK_NAME%.ps1"
 >>"%RB%" echo $accounts=(Invoke-RestMethod -Method Get -Uri $listUri -Headers $headers).value
 >>"%RB%" echo $foundry=$accounts ^| Where-Object { $_.kind -eq $kind }
 >>"%RB%" echo if (-not $foundry) { Write-Output ('No ' + $kind + ' (foundry) accounts found in ' + $rg); return }
+>>"%RB%" echo $failed=@()
 >>"%RB%" echo foreach ($a in $foundry) {
 >>"%RB%" echo $body='{"properties":{"disableLocalAuth":' + $disable.ToString().ToLower() + '}}'
 >>"%RB%" echo $uri=('https://management.azure.com' + $a.id + '?api-version=' + $api)
+>>"%RB%" echo $ok=$false
+>>"%RB%" echo for ($attempt=1; $attempt -le 3; $attempt++) {
+>>"%RB%" echo try {
 >>"%RB%" echo $r=Invoke-RestMethod -Method Patch -Uri $uri -Headers $headers -Body $body -ContentType 'application/json'
->>"%RB%" echo Write-Output ($a.name + ': disableLocalAuth is now ' + $r.properties.disableLocalAuth)
+>>"%RB%" echo Write-Output ($a.name + ' [' + $a.kind + ']: disableLocalAuth is now ' + $r.properties.disableLocalAuth + ' (attempt ' + $attempt + ' of 3)')
+>>"%RB%" echo $ok=$true
+>>"%RB%" echo break
+>>"%RB%" echo } catch {
+>>"%RB%" echo Write-Warning ($a.name + ' [' + $a.kind + ']: attempt ' + $attempt + ' of 3 failed - ' + $_.Exception.Message)
+>>"%RB%" echo if ($attempt -lt 3) { Start-Sleep -Seconds 5 }
 >>"%RB%" echo }
+>>"%RB%" echo }
+>>"%RB%" echo if (-not $ok) { $failed += $a.name; Write-Warning ($a.name + ': FAILED to disable local auth after 3 attempts') }
+>>"%RB%" echo }
+>>"%RB%" echo if ($failed.Count -gt 0) { throw ('Failed to disable local auth on: ' + ($failed -join ', ')) }
+>>"%RB%" echo Write-Output 'All foundry accounts processed successfully.'
 
 echo.
 echo === [5/9] Importing and publishing the runbook (idempotent) ===
