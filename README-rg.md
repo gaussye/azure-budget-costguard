@@ -61,10 +61,13 @@ setup-budget-costguard-rg.cmd <resource-group> [budget-amount] [threshold-percen
 | `<resource-group>`    | 是   | 要守护的**资源组名称**                        | —                  |
 | `[budget-amount]`     | 否   | 月度预算金额                                  | `50`               |
 | `[threshold-percent]` | 否   | **Tier 1 邮件预警**阈值(预算的百分比,须 < 100) | `90`            |
-| `[alert-email]`       | 否   | 接收两级预算通知的邮箱                        | `you@example.com`  |
+| `[alert-email]`       | 否   | 接收两级预算通知的邮箱;支持**多个邮箱**,用逗号分隔并**整体加引号** | `you@example.com`  |
 
 > **Tier 2 的 100% 强制止损阈值是写死的**,不通过参数传入。`[threshold-percent]`
 > 只控制 Tier 1 的邮件预警时机。
+>
+> **多个邮箱**:Windows cmd 会把逗号当作参数分隔符,因此传多个邮箱时必须用引号把整串包起来,例如
+> `setup-budget-costguard-rg.cmd rg-x 50 80 "alice@contoso.com,bob@contoso.com"`。
 
 ### 示例
 

@@ -11,7 +11,9 @@ REM     <resource-group>     name of the resource group to guard (required)
 REM     [budget-amount]      monthly budget, e.g. 50   (optional, default below)
 REM     [threshold-percent]  TIER 1 email-only alert threshold %, e.g. 90
 REM                          (optional, default below; must be < 100)
-REM     [alert-email]        email to receive the budget notifications (optional)
+REM     [alert-email]        email(s) to receive the budget notifications.
+REM                          Multiple emails: comma-separate them AND quote the
+REM                          value, e.g. "a@x.com,b@y.com"  (optional)
 REM
 REM  Two-tier alerting on the RG's monthly cost:
 REM     TIER 1  at [threshold-percent]  -> EMAIL ONLY (a heads-up, no enforcement)
@@ -80,6 +82,12 @@ if %BUDGET_THRESHOLD% GEQ %ENFORCE_THRESHOLD% (
   echo ERROR: threshold-percent must be less than %ENFORCE_THRESHOLD% ^(the email tier fires before the 100%% enforcement tier^).
   exit /b 1
 )
+REM Support multiple, comma-separated emails. Strip spaces, then turn the list
+REM into a JSON array: "a@x.com,b@y.com" -> ["a@x.com","b@y.com"].
+REM NOTE: because cmd treats commas as argument separators, a multi-email value
+REM MUST be passed quoted, e.g. "a@x.com,b@y.com".
+set "ALERT_EMAIL=%ALERT_EMAIL: =%"
+set "ALERT_EMAILS_JSON=["%ALERT_EMAIL:,=","%"]"
 echo Tier 1 email-only  : %BUDGET_THRESHOLD%%%   (email: %ALERT_EMAIL%)
 echo Tier 2 enforce+key : %ENFORCE_THRESHOLD%%%   (email + disable key auth)
 echo Budget amount: %BUDGET_AMOUNT%
@@ -210,7 +218,7 @@ set "BUDGET_JSON=%TEMP%\budget.json"
 REM Two-tier notifications:
 REM   Tier 1 (user threshold %BUDGET_THRESHOLD%%%): EMAIL ONLY  -> no action group.
 REM   Tier 2 (hard-wired %ENFORCE_THRESHOLD%%%):    EMAIL + ACTION GROUP -> disables key auth.
-> "%BUDGET_JSON%" echo {"properties":{"category":"Cost","amount":%BUDGET_AMOUNT%,"timeGrain":"Monthly","timePeriod":{"startDate":"%START_DATE%T00:00:00Z","endDate":"%END_DATE%T00:00:00Z"},"notifications":{"Actual_Email_%BUDGET_THRESHOLD%":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":%BUDGET_THRESHOLD%,"thresholdType":"Actual","contactEmails":["%ALERT_EMAIL%"]},"Actual_Enforce_%ENFORCE_THRESHOLD%":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":%ENFORCE_THRESHOLD%,"thresholdType":"Actual","contactEmails":["%ALERT_EMAIL%"],"contactGroups":["%AG_ID%"]}}}}
+> "%BUDGET_JSON%" echo {"properties":{"category":"Cost","amount":%BUDGET_AMOUNT%,"timeGrain":"Monthly","timePeriod":{"startDate":"%START_DATE%T00:00:00Z","endDate":"%END_DATE%T00:00:00Z"},"notifications":{"Actual_Email_%BUDGET_THRESHOLD%":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":%BUDGET_THRESHOLD%,"thresholdType":"Actual","contactEmails":%ALERT_EMAILS_JSON%},"Actual_Enforce_%ENFORCE_THRESHOLD%":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":%ENFORCE_THRESHOLD%,"thresholdType":"Actual","contactEmails":%ALERT_EMAILS_JSON%,"contactGroups":["%AG_ID%"]}}}}
 
 echo.
 echo === [9/9] Creating the Budget (at resource-group scope) ===
